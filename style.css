@@ -31,6 +31,7 @@ h2{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem}
 .title{font-size:1.1rem;font-weight:600;line-height:1.35}
 .meta{color:var(--muted);margin:.2rem 0 .5rem}
 .paper p{margin:.6rem 0}
+.abstract{margin-top:.5rem}
 .abstract summary{display:inline-block;cursor:pointer;color:var(--muted);list-style:none;user-select:none}
 .abstract summary::-webkit-details-marker{display:none}
 .abstract summary::before{content:"[+] "}
