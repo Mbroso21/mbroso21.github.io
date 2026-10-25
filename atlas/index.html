@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body>
+<title>Dual Transitions Atlas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: fixed-height atlas — map left, a vertical deck of snap-scrolling slides right (current stats, then one slide per dual transition).
+   Colour: cool paper and slate ink; a single teal ramp encodes the era of the dual transition (dark = early, light = recent). */
+:root{
+  --bg:#f2f3f5; --surface:#fcfcfb; --ink:#1d2430; --ink-2:#4a5466; --ink-3:#7c869a; --line:#d9dde4; --line-2:#e9ecf0;
+  --e1:#0b4f49; --e2:#008c7a; --e3:#4fb8a9; --e4:#a9ddd4; --dual:#008c7a; --dual-soft:#cfe9e4; --ser2:#c26d12;
+  --land:#dfe3e9; --land-nodata:#eef0f3; --ocean:#f2f3f5; --border:#ffffff; --hover:#1d2430;
+  --display:"Newsreader",Georgia,"Times New Roman",serif;
+  --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#15181d; --surface:#1d2127; --ink:#e8eaee; --ink-2:#b4bac6; --ink-3:#7f8898; --line:#343a44; --line-2:#272c34;
+  --e1:#1b6a62; --e2:#2fa399; --e3:#6cc5ba; --e4:#b0e2da; --dual:#2fa399; --dual-soft:#1f3d3a; --ser2:#cf7e1e;
+  --land:#2e343d; --land-nodata:#232830; --ocean:#15181d; --border:#15181d; --hover:#ffffff; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#15181d; --surface:#1d2127; --ink:#e8eaee; --ink-2:#b4bac6; --ink-3:#7f8898; --line:#343a44; --line-2:#272c34;
+  --e1:#1b6a62; --e2:#2fa399; --e3:#6cc5ba; --e4:#b0e2da; --dual:#2fa399; --dual-soft:#1f3d3a; --ser2:#cf7e1e;
+  --land:#2e343d; --land-nodata:#232830; --ocean:#15181d; --border:#15181d; --hover:#ffffff; color-scheme:dark;}
+
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0;
+  display:flex;flex-direction:column;overflow:hidden}
+*{box-sizing:border-box}
+h1,h2,h3{text-wrap:balance;margin:0}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--dual);outline-offset:2px}
+
+header.top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-block:14px 10px;border-bottom:1px solid var(--line)}
+header.top h1{font-family:var(--display);font-weight:500;font-size:26px;letter-spacing:-.01em;line-height:1.1}
+header.top h1 em{font-style:italic;color:var(--ink-2)}
+header.top .sub{color:var(--ink-2);font-size:13px;max-width:60ch}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);align-items:center}
+.legend .lt{color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.legend .sw{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-2px;border:1px solid var(--line)}
+
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,.9fr);gap:16px;padding-block:12px 16px}
+@media (max-width:860px){body{overflow:auto;height:auto;min-height:100%}main{display:flex;flex-direction:column;flex:none}#mapwrap{height:56vh;flex:none}#panel{flex:none;max-height:none;overflow:visible;scroll-snap-type:none}.slide{min-height:0}}
+
+#mapwrap{position:relative;min-height:0;background:var(--ocean);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+#map{width:100%;height:100%;display:block;touch-action:none}
+.country{stroke:var(--border);stroke-width:.5;cursor:pointer}
+.country:hover{stroke:var(--hover);stroke-width:1.2}
+.country.selected{stroke:var(--hover);stroke-width:1.6}
+.c-e1{fill:var(--e1)} .c-e2{fill:var(--e2)} .c-e3{fill:var(--e3)} .c-e4{fill:var(--e4)} .c-data{fill:var(--land)} .c-none{fill:var(--land-nodata)}
+.sphere{fill:var(--ocean)} .graticule{fill:none;stroke:var(--line-2);stroke-width:.5}
+#tip{position:absolute;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:6px 9px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.12);max-width:240px;display:none;z-index:3}
+#tip b{font-family:var(--display);font-size:14px;font-weight:600}
+#tip .m{font-family:var(--mono);color:var(--ink-2);font-size:11px}
+.mapctl{position:absolute;left:10px;top:10px;display:flex;gap:6px;z-index:2}
+.mapctl button,.mapctl select{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:5px 9px;font-size:12px;color:var(--ink)}
+.mapctl select{max-width:220px}
+.mapctl button:hover{border-color:var(--ink-3)}
+.mapnote{position:absolute;right:10px;bottom:8px;font-size:11px;color:var(--ink-3);font-family:var(--mono)}
+
+#panel{min-height:0;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:6px;scroll-snap-type:y proximity;scroll-behavior:smooth}
+#panel::-webkit-scrollbar{width:8px} #panel::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.slide{scroll-snap-align:start;min-height:100%;padding:18px 20px 24px;border-bottom:1px solid var(--line);display:flex;flex-direction:column}
+.slide:last-child{border-bottom:0}
+.slide .foot{margin-top:auto;padding-top:14px;font-size:11.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.slide .foot button{color:var(--dual)} .slide .foot button:hover{text-decoration:underline}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.ctitle{font-family:var(--display);font-size:30px;font-weight:500;line-height:1.05;margin-top:2px}
+.ctitle small{font-family:var(--body);font-size:13px;font-weight:400;color:var(--ink-2);margin-left:8px;letter-spacing:0}
+.lead{color:var(--ink-2);font-size:13px;margin-top:6px}
+.badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:3px;font-weight:500;letter-spacing:.02em;vertical-align:2px}
+.badge.dual{background:var(--dual-soft);color:var(--dual)} .badge.none{background:var(--line-2);color:var(--ink-2)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px 14px;margin-top:18px}
+.tile{border-top:2px solid var(--line);padding-top:6px}
+.tile .k{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+.tile .v{font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .v .ar{color:var(--ink-3);font-size:14px;margin:0 4px}
+.tile .d{font-size:11px;color:var(--ink-2)}
+.tile.acc{border-top-color:var(--dual)}
+
+.story{font-family:var(--display);font-size:16.5px;line-height:1.5;margin-top:14px;max-width:62ch}
+.story p{margin:0 0 .7em}
+.story p.num{color:var(--ink-2)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:11px;border:1px solid var(--line);border-radius:3px;padding:1px 6px;color:var(--ink-2)}
+.chip.on{border-color:var(--dual);color:var(--dual)}
+.chip.vio{border-color:var(--ser2);color:var(--ser2)}
+
+section.blk{margin-top:22px}
+section.blk h2{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.005em}
+section.blk h2 small{font-family:var(--body);font-weight:400;font-size:12px;color:var(--ink-3);margin-left:8px}
+.charts2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+@media (max-width:1100px){.charts2{grid-template-columns:1fr}}
+.chart{width:100%;height:auto;display:block;font-family:var(--mono);font-size:10.5px}
+.chart .grid line{stroke:var(--line-2)} .chart .axis text{fill:var(--ink-3)} .chart .axis path,.chart .axis line{stroke:var(--line)}
+.chart .ln{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .lbl{fill:var(--ink-2)} .chart .vline{stroke-width:1} .chart .band{opacity:.18}
+.chart .cross{stroke:var(--ink-3);stroke-dasharray:2 3}
+.chart .hud{fill:var(--ink);font-size:11px}
+.clegend{display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-2);margin-top:4px}
+.clegend i{display:inline-block;width:14px;height:0;border-top:2px solid;margin-right:5px;vertical-align:3px}
+.clegend .mk{display:inline-block;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid var(--ink-2);margin-right:5px;vertical-align:0}
+
+.ovlist{margin:8px 0 0;padding:0;list-style:none;columns:2;column-gap:18px;font-size:13px}
+@media (max-width:1100px){.ovlist{columns:1}}
+.ovlist li{break-inside:avoid;padding:3px 0;border-bottom:1px solid var(--line-2)}
+.ovlist button{display:flex;justify-content:space-between;width:100%;text-align:left;padding:0;gap:8px}
+.ovlist button:hover .nm{color:var(--dual);text-decoration:underline}
+.ovlist .yr{font-family:var(--mono);color:var(--ink-2);font-size:12px;white-space:nowrap}
+.era{font-family:var(--display);font-size:16px;font-weight:600;margin-top:16px;display:flex;align-items:center;gap:8px}
+.era .sw{display:inline-block;width:12px;height:12px;border-radius:2px}
+.era small{font-family:var(--body);font-weight:400;font-size:12px;color:var(--ink-3)}
+.back{color:var(--dual);font-size:12px;padding:0;margin-bottom:10px;display:inline-flex;gap:6px;align-items:center}
+.back:hover{text-decoration:underline}
+.defs{font-size:12.5px;color:var(--ink-2);margin-top:8px}
+.defs dt{font-weight:600;color:var(--ink);margin-top:8px} .defs dd{margin:2px 0 0}
+.empty{color:var(--ink-2);font-size:13px;margin-top:8px}
+.scrollhint{margin-top:22px;font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:8px}
+.scrollhint button{color:var(--dual);font-weight:500} .scrollhint button:hover{text-decoration:underline}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}#panel{scroll-behavior:auto}}
+</style>
+
+<header class="top">
+  <div>
+    <h1>Dual Transitions Atlas <em>1789–2024</em></h1>
+    <div class="sub">Companion to <i>Long Live the Patient King</i>. Click a country for its current statistics, then scroll down for one slide per dual transition.</div>
+  </div>
+  <div class="legend">
+    <span class="lt">Year of the dual transition</span>
+    <span><i class="sw" style="background:var(--e1)"></i>1789–1847</span>
+    <span><i class="sw" style="background:var(--e2)"></i>1848–1913</span>
+    <span><i class="sw" style="background:var(--e3)"></i>1914–1944</span>
+    <span><i class="sw" style="background:var(--e4)"></i>1945–2024</span>
+    <span><i class="sw" style="background:var(--land)"></i>None</span>
+    <span><i class="sw" style="background:var(--land-nodata)"></i>No data</span>
+  </div>
+</header>
+
+<main>
+  <div id="mapwrap">
+    <div class="mapctl">
+      <select id="pick" aria-label="Choose a country"><option value="">Find a country…</option></select>
+      <button id="reset" type="button">Reset view</button>
+    </div>
+    <svg id="map" role="img" aria-label="World map of dual transitions by era"></svg>
+    <div id="tip"></div>
+    <div class="mapnote">drag to pan · scroll to zoom</div>
+  </div>
+  <aside id="panel" aria-live="polite"><div class="slide"><div class="empty">Loading data…</div></div></aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(async function(){
+const panel=document.getElementById('panel');
+let D,STORIES={};
+try{ const [a,b]=await Promise.all([fetch('data.json'),fetch('stories.json')]); D=await a.json(); STORIES=await b.json(); }
+catch(e){ panel.innerHTML='<div class="slide"><div class="empty">Could not load the data files.</div></div>'; return; }
+const C=D.countries, GEO=D.geo;
+const ERAS=[[1789,1847,'1789–1847','e1'],[1848,1913,'1848–1913','e2'],[1914,1944,'1914–1944','e3'],[1945,2024,'1945–2024','e4']];
+const eraOf=y=>ERAS.find(e=>y>=e[0]&&y<=e[1]);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const pct=x=>x==null?'–':(x*100).toFixed(1)+'%';
+const fmtN=x=>x==null?'–':d3.format(',.0f')(x);
+const f2=x=>x==null?'–':x.toFixed(2);
+const mapName={}; GEO.features.forEach(f=>mapName[f.properties.code]=f.properties.name);
+const nameOf=code=>(C[code]&&C[code].name)||mapName[code]||code;
+
+/* ---------- map ---------- */
+function cls(code){const c=C[code]; if(!c) return 'c-none'; if(!c.duals.length) return 'c-data'; return 'c-'+eraOf(c.duals[0].T_pol)[3];}
+const wrap=document.getElementById('mapwrap'), svg=d3.select('#map'), tip=document.getElementById('tip');
+const g=svg.append('g');
+const proj=d3.geoNaturalEarth1(), path=d3.geoPath(proj);
+g.append('path').attr('class','sphere').datum({type:'Sphere'});
+g.append('path').attr('class','graticule').datum(d3.geoGraticule10());
+const land=g.append('g').selectAll('path').data(GEO.features).join('path')
+  .attr('class',f=>'country '+cls(f.properties.code))
+  .on('mousemove',(ev,f)=>{const code=f.properties.code,c=C[code];
+    tip.innerHTML=`<b>${nameOf(code)}</b><br><span class="m">${c?(c.duals.length?`dual transition${c.duals.length>1?'s':''}: ${c.duals.map(e=>e.T_pol).join(', ')}`:'no dual transition'):'not in the sample'}</span>`;
+    tip.style.display='block'; const r=wrap.getBoundingClientRect();
+    let x=ev.clientX-r.left+14,y=ev.clientY-r.top+14; if(x+250>r.width) x-=264; tip.style.left=x+'px'; tip.style.top=y+'px';})
+  .on('mouseleave',()=>tip.style.display='none')
+  .on('click',(ev,f)=>select(f.properties.code));
+const zoom=d3.zoom().scaleExtent([1,12]).on('zoom',ev=>g.attr('transform',ev.transform));
+svg.call(zoom);
+document.getElementById('reset').onclick=()=>svg.transition().duration(400).call(zoom.transform,d3.zoomIdentity);
+function size(){const w=wrap.clientWidth,h=wrap.clientHeight; svg.attr('viewBox',`0 0 ${w} ${h}`);
+  proj.fitExtent([[8,8],[w-8,h-8]],{type:'Sphere'}); g.selectAll('path').attr('d',path);}
+size(); new ResizeObserver(size).observe(wrap);
+
+/* ---------- picker ---------- */
+const pick=document.getElementById('pick');
+Object.keys(C).filter(k=>C[k].name).sort((a,b)=>C[a].name.localeCompare(C[b].name)).forEach(k=>{
+  const o=document.createElement('option'); o.value=k; const n=C[k].duals.length;
+  o.textContent=C[k].name+(n?` (${C[k].duals.map(e=>e.T_pol).join(', ')})`:''); pick.appendChild(o);});
+pick.onchange=()=>{if(pick.value) select(pick.value);};
+
+/* ---------- selection ---------- */
+function select(code){land.classed('selected',f=>f.properties.code===code); pick.value=C[code]?code:'';
+  if(!C[code]){panel.innerHTML=`<div class="slide"><button class="back" id="back">← World overview</button><div class="eyebrow">Not in the sample</div><div class="ctitle">${nameOf(code)}</div><p class="empty">No V-Dem or Maddison series for this unit.</p></div>`; bindBack(); return;}
+  renderCountry(code); panel.scrollTop=0;
+  const f=GEO.features.find(f=>f.properties.code===code);
+  if(f&&window.innerWidth>860){const [[x0,y0],[x1,y1]]=path.bounds(f),w=wrap.clientWidth,h=wrap.clientHeight;
+    const k=Math.min(4,0.6/Math.max((x1-x0)/w,(y1-y0)/h)); if(k>1.6) svg.transition().duration(600).call(zoom.transform,d3.zoomIdentity.translate(w/2,h/2).scale(k).translate(-(x0+x1)/2,-(y0+y1)/2));}
+}
+function bindBack(){panel.querySelectorAll('.back').forEach(b=>b.onclick=()=>{land.classed('selected',false);pick.value='';renderOverview();svg.transition().duration(400).call(zoom.transform,d3.zoomIdentity);});}
+
+/* ---------- series helpers ---------- */
+function ser(c,key,a=-Infinity,b=Infinity){const s=c.s[key]; if(!s) return []; return s.v.map((v,i)=>[s.y0+i,v]).filter(d=>d[1]!=null&&d[0]>=a&&d[0]<=b);}
+function last(c,key){return c.now[key]||null;}
+function decMean(c,key,a,b){const s=ser(c,key,a,b); return s.length>=5?d3.mean(s,d=>d[1]):null;}
+function embezChange(c,T){const pre=decMean(c,'embez',T-10,T-1),post=decMean(c,'embez',T,T+9); return pre==null||post==null?null:{pre,post,d:post-pre};}
+
+/* ---------- chart ---------- */
+function lineChart(opts){
+  const {series,T_pol,T_growth,log=false,yfmt=d3.format('.2f'),height=170,domain,xdomain}=opts;
+  const W=420,H=height,m={t:12,r:10,b:24,l:44}; const sv=d3.create('svg').attr('class','chart').attr('viewBox',`0 0 ${W} ${H}`);
+  const all=series.flatMap(s=>s.data); if(!all.length) return sv.node();
+  const x=d3.scaleLinear().domain(xdomain||d3.extent(all,d=>d[0])).range([m.l,W-m.r]);
+  const y=(log?d3.scaleLog():d3.scaleLinear()).domain(domain||d3.extent(all,d=>d[1])).nice().range([H-m.b,m.t]);
+  const yt=log?[100,200,500,1e3,2e3,5e3,1e4,2e4,5e4,1e5,2e5].filter(v=>v>=y.domain()[0]&&v<=y.domain()[1]):y.ticks(4);
+  sv.append('g').attr('class','grid').selectAll('line').data(yt).join('line').attr('x1',m.l).attr('x2',W-m.r).attr('y1',d=>y(d)).attr('y2',d=>y(d));
+  if(T_pol!=null){const col=css('--dual'),xa=Math.max(x.domain()[0],T_pol),xb=Math.min(x.domain()[1],T_pol+10);
+    sv.append('rect').attr('class','band').attr('x',x(xa)).attr('width',Math.max(0,x(xb)-x(xa))).attr('y',m.t).attr('height',H-m.b-m.t).attr('fill',col);
+    sv.append('line').attr('class','vline').attr('x1',x(T_pol)).attr('x2',x(T_pol)).attr('y1',m.t).attr('y2',H-m.b).attr('stroke',col);
+    if(T_growth!=null&&T_growth>=x.domain()[0]&&T_growth<=x.domain()[1]) sv.append('path').attr('d',d3.symbol(d3.symbolTriangle,42)()).attr('transform',`translate(${x(T_growth)},${H-m.b-5})`).attr('fill',col);}
+  sv.append('g').attr('class','axis').attr('transform',`translate(0,${H-m.b})`).call(d3.axisBottom(x).ticks(5).tickFormat(d3.format('d')).tickSize(3));
+  sv.append('g').attr('class','axis').attr('transform',`translate(${m.l},0)`).call(d3.axisLeft(y).tickValues(yt).tickFormat(yfmt).tickSize(3));
+  const line=d3.line().defined(d=>d[1]!=null&&(!log||d[1]>0)).x(d=>x(d[0])).y(d=>y(d[1]));
+  series.forEach(s=>sv.append('path').attr('class','ln').attr('stroke',s.color).attr('d',line(s.data)));
+  const cross=sv.append('line').attr('class','cross').attr('y1',m.t).attr('y2',H-m.b).style('display','none');
+  const hud=sv.append('text').attr('class','hud').attr('y',m.t+10).style('display','none');
+  const dots=sv.append('g').selectAll('circle').data(series).join('circle').attr('r',3.5).attr('fill',s=>s.color).style('display','none');
+  sv.append('rect').attr('x',m.l).attr('y',m.t).attr('width',W-m.l-m.r).attr('height',H-m.b-m.t).attr('fill','transparent')
+    .on('mousemove touchmove',function(ev){const [px]=d3.pointer(ev,this); const yr=Math.round(x.invert(px));
+      cross.attr('x1',x(yr)).attr('x2',x(yr)).style('display',null); const txt=[String(yr)];
+      dots.each(function(s){const d=s.data.find(d=>d[0]===yr); d3.select(this).style('display',d?null:'none'); if(d){d3.select(this).attr('cx',x(yr)).attr('cy',y(d[1])); txt.push(s.name+' '+(s.fmt||yfmt)(d[1]));}});
+      hud.text(txt.join(' · ')).style('display',null).attr('x',px<W/2?px+8:px-8).attr('text-anchor',px<W/2?'start':'end');})
+    .on('mouseleave',()=>{cross.style('display','none');hud.style('display','none');dots.style('display','none');});
+  return sv.node();
+}
+function legend(items){return `<div class="clegend">${items.map(i=>i.mark?`<span><i class="mk"></i>${i.name}</span>`:`<span><i style="border-color:${i.color}"></i>${i.name}</span>`).join('')}</div>`;}
+
+/* ---------- story text ---------- */
+const RULER={CONCESSION:'the ruler kept power',REPLACEMENT:'the ruler was replaced',INDEPENDENCE:'independence from a colonial power',OTHER:'change of regime'};
+const MODE={coup:'coup',electoral_or_legal:'electoral or legal process',foreign_war_or_occupation:'foreign war or occupation',independence:'independence',negotiated_pact:'negotiated pact',other:'other',popular_uprising:'popular uprising',revolution_or_civil_war:'revolution or civil war',ruler_concession:'ruler concession'};
+function numbersSentence(e){
+  let s=`Around this episode, the index of legislative constraints rose from ${f2(e.pol_pre)} to ${f2(e.pol_post)}`;
+  if(e.g_pre!=null) s+=`, and the ten-year average growth rate of GDP per capita went from ${e.g_pre<0.0005&&e.g_pre>-0.0005?'(near) zero':pct(e.g_pre)} to ${pct(e.g_post)} a year.`; else s+='.';
+  const b=e.break_even; if(b&&b.Y_ratio!=null){
+    const lo=Math.min(b.take_linear,b.take_S,b.take_flat),hi=Math.max(b.take_linear,b.take_S,b.take_flat);
+    s+=` Real GDP over the twenty years after the political break was ${Math.round((b.Y_ratio-1)*100)}% higher than over the twenty years before it. To offset this increase, the ruler's share would have had to fall by ${Math.round(b.required_tau_fall*100)}%; instead, the ruler's consumption was ${hi<1?`${Math.round((1-hi)*100)} to ${Math.round((1-lo)*100)}% lower`:(lo>=1?`${Math.round((lo-1)*100)} to ${Math.round((hi-1)*100)}% higher`:`between ${Math.round((lo-1)*100)}% and +${Math.round((hi-1)*100)}%`)}, depending on the mapping.`;}
+  return s;}
+
+/* ---------- country deck ---------- */
+function renderCountry(code){const c=C[code];
+  const gdp=last(c,'gdppc'), pol=last(c,'pol'), pa=last(c,'polyarchy'), ld=last(c,'libdem'), em=last(c,'embez'), pp=last(c,'pop');
+  const g10=c.g10==null?null:c.g10;
+  const n=c.duals.length;
+  let h=`<div class="slide" id="s0"><button class="back">← World overview</button>
+  <div class="eyebrow">${code} · ${n?`<span class="badge dual">${n} dual transition${n>1?'s':''}: ${c.duals.map(e=>e.T_pol).join(', ')}</span>`:'<span class="badge none">no dual transition</span>'}</div>
+  <div class="ctitle">${nameOf(code)}<small>current statistics</small></div>
+  <div class="tiles">
+    <div class="tile"><div class="k">GDP per capita</div><div class="v">${gdp?'$'+fmtN(gdp[1]):'–'}</div><div class="d">${gdp?gdp[0]+', 2011 intl. $ (Maddison)':'no Maddison data'}</div></div>
+    <div class="tile"><div class="k">Growth, last decade</div><div class="v">${g10==null?'–':(g10*100).toFixed(1)+'%'}</div><div class="d">GDP p.c., mean log growth per year</div></div>
+    <div class="tile"><div class="k">Population</div><div class="v">${pp?d3.format('.3s')(pp[1]).replace('G','B'):'–'}</div><div class="d">${pp?pp[0]+' (OWID)':'–'}</div></div>
+    <div class="tile"><div class="k">Legislative constraints</div><div class="v">${pol?f2(pol[1]):'–'}</div><div class="d">${pol?'V-Dem v2xlg_legcon, '+pol[0]:'–'}</div></div>
+    <div class="tile"><div class="k">Electoral democracy</div><div class="v">${pa?f2(pa[1]):'–'}</div><div class="d">${pa?'V-Dem polyarchy, '+pa[0]:'–'}</div></div>
+    <div class="tile"><div class="k">Liberal democracy</div><div class="v">${ld?f2(ld[1]):'–'}</div><div class="d">${ld?'V-Dem libdem, '+ld[0]:'–'}</div></div>
+    <div class="tile"><div class="k">Exec. embezzlement</div><div class="v">${em?f2(em[1]):'–'}</div><div class="d">${em?'0 none – 1 all, '+em[0]:'–'}</div></div>
+  </div>
+  <section class="blk"><h2>Since 1789 <small>V-Dem index of legislative constraints on the executive</small></h2><div id="ch-all"></div></section>
+  ${n?`<div class="scrollhint">↓ Scroll down for ${n===1?'the dual transition of '+c.duals[0].T_pol:n+' dual transitions'} <button data-go="s1">open</button></div>`:`<p class="empty">The index of legislative constraints never rose by 0.15 between consecutive decades and stayed there with a growth take-off within ten years.</p>`}
+  <div class="foot"><span>Sources: V-Dem v15, Maddison Project 2023, Our World in Data.</span></div></div>`;
+
+  c.duals.forEach((e,i)=>{const key=code+'-'+e.T_pol, v=e.violence, b=e.break_even, era=eraOf(e.T_pol);
+    h+=`<div class="slide" id="s${i+1}"><div class="eyebrow"><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--${era[3]});vertical-align:-1px;margin-right:6px"></span>Dual transition ${i+1} of ${n} · ${nameOf(code)}</div>
+    <div class="ctitle">${e.T_pol}<small>political break${e.T_growth!=null?` · growth take-off ${e.T_growth}`:''}</small></div>
+    <div class="story"><p>${STORIES[key]||''}</p><p class="num">${numbersSentence(e)}</p></div>
+    <div class="chips"><span class="chip">${RULER[e.ruler]||''}</span>${e.category?`<span class="chip">${e.category}</span>`:''}${v?`<span class="chip ${v.level>=3?'vio':''}">${MODE[v.mode]||v.mode}</span><span class="chip ${v.level>=3?'vio':''}">${v.level>=3?'large-scale violence':(v.level>0?'limited violence':'no violence')}</span>${v.removed_by_force?'<span class="chip vio">ruler removed by force</span>':''}`:''}${['Polity5','BMR','LIED','ERT'].map(s=>`<span class="chip ${e.matches.includes(s)?'on':''}" title="${e.matches.includes(s)?'regime change recorded within 3 years':'no match'}">${s}</span>`).join('')}</div>
+    <div class="tiles">
+      <div class="tile acc"><div class="k">Legislative constraints</div><div class="v">${f2(e.pol_pre)}<span class="ar">→</span>${f2(e.pol_post)}</div><div class="d">decade before → decade after</div></div>
+      <div class="tile acc"><div class="k">GDP p.c. growth</div><div class="v">${e.g_pre==null?'n/a':pct(e.g_pre)+'<span class="ar">→</span>'+pct(e.g_post)}</div><div class="d">ten years before → after the take-off</div></div>
+      ${(()=>{const x=embezChange(c,e.T_pol); return x?`<div class="tile acc"><div class="k">Exec. embezzlement</div><div class="v">${f2(x.pre)}<span class="ar">→</span>${f2(x.post)}</div><div class="d">decade before → decade after</div></div>`:'';})()}
+      ${b&&b.Y_ratio!=null?`<div class="tile acc"><div class="k">Real GDP</div><div class="v">×${f2(b.Y_ratio)}</div><div class="d">20 yrs after / 20 yrs before</div></div>
+      <div class="tile acc"><div class="k">Ruler's consumption</div><div class="v">×${f2(b.take_linear)}</div><div class="d">after / before, linear mapping (range ${f2(Math.min(b.take_linear,b.take_S,b.take_flat))}–${f2(Math.max(b.take_linear,b.take_S,b.take_flat))})</div></div>`:''}
+    </div>
+    <section class="blk"><h2>Around the break <small>${e.T_pol-25}–${e.T_pol+25}</small></h2><div class="charts2"><div id="cg${i}"></div><div id="cp${i}"></div></div>
+    ${legend([{name:'GDP per capita, log scale (2011 $)',color:css('--ink')},{name:'legislative constraints',color:css('--dual')},{name:'executive embezzlement',color:css('--ser2')},{name:'growth take-off',mark:true}])}</section>
+    <div class="foot"><span>${i<n-1?'↓ next: '+c.duals[i+1].T_pol:'last episode'}</span><button data-go="s0">↑ current statistics</button></div></div>`;});
+  panel.innerHTML=h; bindBack();
+  panel.querySelectorAll('button[data-go]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.go).scrollIntoView({behavior:'smooth'}));
+  // charts
+  const polAll=ser(c,'pol');
+  document.getElementById('ch-all').replaceChildren(polAll.length?lineChart({series:[{name:'leg. constraints',data:polAll,color:css('--dual')}],domain:[0,1],height:130,T_pol:null}):Object.assign(document.createElement('p'),{className:'empty',textContent:'No V-Dem series.'}));
+  const polSvg=document.querySelector('#ch-all svg'); if(polSvg){const x=d3.scaleLinear().domain(d3.extent(polAll,d=>d[0])).range([44,410]);
+    c.duals.forEach(e=>d3.select(polSvg).insert('line',':first-child').attr('class','vline').attr('x1',x(e.T_pol)).attr('x2',x(e.T_pol)).attr('y1',12).attr('y2',106).attr('stroke',css('--'+eraOf(e.T_pol)[3])).attr('stroke-width',2));}
+  c.duals.forEach((e,i)=>{const a=e.T_pol-25,bY=e.T_pol+25;
+    const gd=ser(c,'gdppc',a,bY);
+    document.getElementById('cg'+i).replaceChildren(gd.length?lineChart({series:[{name:'GDP p.c.',data:gd,color:css('--ink'),fmt:x=>'$'+fmtN(x)}],T_pol:e.T_pol,T_growth:e.T_growth,log:true,yfmt:d3.format('$~s'),xdomain:[a,bY]}):Object.assign(document.createElement('p'),{className:'empty',textContent:'No GDP series in this window.'}));
+    const inst=[{name:'leg. constraints',data:ser(c,'polw',a,bY),color:css('--dual')},{name:'embezzlement',data:ser(c,'embez',a,bY),color:css('--ser2')}].filter(s=>s.data.length);
+    document.getElementById('cp'+i).replaceChildren(inst.length?lineChart({series:inst,T_pol:e.T_pol,T_growth:e.T_growth,domain:[0,1],xdomain:[a,bY]}):Object.assign(document.createElement('p'),{className:'empty',textContent:'No V-Dem series.'}));});
+}
+
+/* ---------- overview ---------- */
+function renderOverview(){
+  const du=[]; Object.keys(C).forEach(k=>C[k].duals.forEach(e=>du.push({code:k,...e}))); du.sort((a,b)=>a.T_pol-b.T_pol||nameOf(a.code).localeCompare(nameOf(b.code)));
+  const nonviol=du.filter(e=>e.violence&&e.violence.level<3).length;
+  const medPol=d3.median(du,e=>e.pol_post-e.pol_pre), medG=d3.median(du.filter(e=>e.g_pre!=null),e=>e.g_post-e.g_pre);
+  const embs=du.map(e=>embezChange(C[e.code],e.T_pol)).filter(x=>x), medEmb=d3.median(embs,x=>x.d), embFall=embs.filter(x=>x.d<0).length;
+  const be=du.filter(e=>e.break_even&&e.break_even.take_linear!=null), better=be.filter(e=>e.break_even.take_linear>=1).length;
+  const medY=d3.median(be,e=>e.break_even.Y_ratio), nC=new Set(du.map(e=>e.code)).size;
+  let h=`<div class="slide"><div class="eyebrow">World overview</div><div class="ctitle">${du.length} dual transitions, ${nC} countries</div>
+  <div class="lead">A dual transition is a permanent rise in the constraints faced by the executive, accompanied within ten years by a take-off in the growth rate of GDP per capita. Countries are coloured by the year of their (first) dual transition.</div>
+  <div class="tiles">
+    <div class="tile"><div class="k">Median rise in constraints</div><div class="v">+${f2(medPol)}</div><div class="d">V-Dem legislative constraints, decade after − decade before</div></div>
+    <div class="tile"><div class="k">Median change in embezzlement</div><div class="v">${medEmb>0?'+':'−'}${f2(Math.abs(medEmb))}</div><div class="d">decade after − decade before; falls in ${embFall} of ${embs.length} episodes</div></div>
+    <div class="tile"><div class="k">Median growth acceleration</div><div class="v">+${(medG*100).toFixed(1)} pp</div><div class="d">ten-year mean growth of GDP p.c., after − before</div></div>
+    <div class="tile"><div class="k">Without large-scale violence</div><div class="v">${nonviol}/${du.length}</div><div class="d">fewer than 1,000 political deaths</div></div>
+    <div class="tile"><div class="k">Ruler not worse off</div><div class="v">${better}/${be.length}</div><div class="d">consumption 20 yrs after ≥ before</div></div>
+    <div class="tile"><div class="k">Median output gain</div><div class="v">×${f2(medY)}</div><div class="d">real GDP, 20 yrs after / before</div></div>
+  </div>
+  <section class="blk"><h2>All dual transitions <small>click to open</small></h2>`;
+  ERAS.forEach(([a,b,l,k])=>{const x=du.filter(e=>e.T_pol>=a&&e.T_pol<=b); if(!x.length) return;
+    h+=`<div class="era"><span class="sw" style="background:var(--${k})"></span>${l}<small>${x.length}</small></div><ul class="ovlist">`+x.map(e=>`<li><button data-c="${e.code}"><span class="nm">${nameOf(e.code)}</span><span class="yr">${e.T_pol}${e.T_growth!=null?' → '+e.T_growth:''}</span></button></li>`).join('')+`</ul>`;});
+  h+=`</section><dl class="defs"><dt>Political break</dt><dd>The decade mean of V-Dem's index of legislative constraints rises by at least 0.15 (half a standard deviation), never falls below the previous decade's mean, and is still at least 0.10 above it a decade later.</dd><dt>Growth take-off</dt><dd>The ten-year mean growth rate of GDP per capita rises by at least one percentage point, to at least 1% a year; output ends above any past level; and the start is not a rebound from a slump.</dd><dt>Sources</dt><dd>V-Dem Country-Year Core v15; Maddison Project Database 2023 via Our World in Data; OWID population; Polity5, Boix–Miller–Rosato, LIED and V-Dem ERT for validation. Numbers are from the paper's replication package.</dd><dt>About this atlas</dt><dd>Built by Claude Fable 5.1 (Anthropic) in October 2026, from the paper <i>Long Live the Patient King</i> by Matteo Broso and its replication package. The country narratives were drafted by the model from the paper's episode coding and may contain errors.</dd></dl></div>`;
+  panel.innerHTML=h;
+  panel.querySelectorAll('button[data-c]').forEach(b=>b.onclick=()=>select(b.dataset.c));
+}
+
+renderOverview();
+const h0=(location.hash||'').replace('#',''); if(h0&&C[h0]) select(h0);
+})();
+</script>
+
+</body>
+</html>
