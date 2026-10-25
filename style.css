@@ -32,6 +32,8 @@ h2{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem}
 .meta{color:var(--muted);margin:.2rem 0 .5rem}
 .paper p{margin:.6rem 0}
 .abstract{margin-top:.5rem}
+.btn{display:inline-block;padding:.3rem .7rem;font:inherit;font-size:.9rem;color:var(--ink);background:transparent;border:1px solid var(--ink);text-decoration:none}
+.btn:hover{background:var(--ink);color:var(--bg)}
 .abstract summary{display:inline-block;cursor:pointer;color:var(--muted);list-style:none;user-select:none}
 .abstract summary::-webkit-details-marker{display:none}
 .abstract summary::before{content:"[+] "}
